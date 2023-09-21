@@ -69,18 +69,15 @@ static int32_t problemArray[] = {1,1,1,0,0,0};
 // the following array defines pairs of {balance, transaction} values
 // tc stands for test case
 static int32_t tc[][2] = {
-    {         5,          7},  // normal case, no errs
-    {       100,        -50},  // normal case, result is +
-    {        75,        -99},  // normal case, result is -
-    {         0,        -42},  // test with a 0 input
-    {       -44,          0},  // test with a 0 input
-    {         0,          0},
-    {       125,       1000},  // valid transaction amount
-    {       126,       1001},  // invalid transaction amount
-    {       127,      -1000},  // valid transaction amount
-    {       128,      -1001},  // invalid transaction amount
-    {0x7FFFFFFF,        120},  // overflow
-    {0x80000001,       -100}   // underlow
+    {      65535,         11}, // normal case, no errs
+    {          0,          0}, // test with both inputs 0
+    { 3000000000,    1000000}, // big numbers! (checks to see if using unsigned compares)
+    {    1000000, 3000000000}, // big numbers! (checks to see if using unsigned compares)
+    {          0,          5}, // test with a 0 input
+    {          5,          0}, // test with a 0 input
+    {         29,          5},
+    {         25,          5}, // check for handling 0 as a result for mod
+    {          1,          5} // check for correct integer division result
 };
 
 static char * pass = "PASS";
@@ -95,15 +92,14 @@ static char * fail = "FAIL";
 //
 // Function signature
 // for this lab, the function takes one arg (amount), and returns the balance
-extern int32_t asmFunc(int32_t);
+extern uint32_t asmFunc(uint32_t, uint32_t);
 
 
-extern int32_t balance;
-extern int32_t transaction;
-extern int32_t eat_out;
-extern int32_t stay_in;
-extern int32_t eat_ice_cream;
-extern int32_t we_have_a_problem;
+extern uint32_t dividend;
+extern uint32_t divisor;
+extern uint32_t quotient;
+extern uint32_t mod;
+extern uint32_t we_have_a_problem;
 
 
 // set this to 0 if using the simulator. BUT note that the simulator
@@ -134,19 +130,17 @@ static void printGlobalAddresses(void)
     // build the string to be sent out over the serial lines
     snprintf((char*)uartTxBuffer, MAX_PRINT_LEN,
             "========= GLOBAL VARIABLES MEMORY ADDRESS LIST\r\n"
-            "global variable \"balance\" stored at address:           0x%" PRIXPTR "\r\n"
-            "global variable \"transaction\" stored at address:       0x%" PRIXPTR "\r\n"
-            "global variable \"eat_out\" stored at address:           0x%" PRIXPTR "\r\n"
-            "global variable \"stay_in\" stored at address:           0x%" PRIXPTR "\r\n"
-            "global variable \"eat_ice_cream\" stored at address:     0x%" PRIXPTR "\r\n"
+            "global variable \"dividend\" stored at address:          0x%" PRIXPTR "\r\n"
+            "global variable \"divisor\" stored at address:           0x%" PRIXPTR "\r\n"
+            "global variable \"quotient\" stored at address:          0x%" PRIXPTR "\r\n"
+            "global variable \"mod\" stored at address:               0x%" PRIXPTR "\r\n"
             "global variable \"we_have_a_problem\" stored at address: 0x%" PRIXPTR "\r\n"
             "========= END -- GLOBAL VARIABLES MEMORY ADDRESS LIST\r\n"
             "\r\n",
-            (uintptr_t)(&balance), 
-            (uintptr_t)(&transaction), 
-            (uintptr_t)(&eat_out), 
-            (uintptr_t)(&stay_in), 
-            (uintptr_t)(&eat_ice_cream), 
+            (uintptr_t)(&dividend), 
+            (uintptr_t)(&divisor), 
+            (uintptr_t)(&quotient), 
+            (uintptr_t)(&mod),  
             (uintptr_t)(&we_have_a_problem)
             ); 
     isRTCExpired = false;
@@ -166,7 +160,7 @@ static void printGlobalAddresses(void)
 
 // return failure count. A return value of 0 means everything passed.
 static int testResult(int testNum, 
-                      int32_t r0Balance, 
+                      uint32_t r0quotientAddr, 
                       int32_t *passCount,
                       int32_t *failCount)
 {
@@ -175,197 +169,124 @@ static int testResult(int testNum,
     // So I'm setting it up this way so it'll work for future labs, too --VB
     *failCount = 0;
     *passCount = 0;
-    char *flagsCheck = "OOPS";
-    char *memBalCheck = "OOPS";
-    char *regBalCheck = "OOPS";
-    char *transactionCheck = "OOPS";
+    char *errCheck = "OOPS";
+    char *quotientCheck = "OOPS";
+    char *dividendCheck = "OOPS";
+    char *divisorCheck = "OOPS";
+    char *modCheck = "OOPS";
+    char *addrCheck = "OOPS";
     // static char *s2 = "OOPS";
-    static bool firstTime = true;
-    int32_t myInputBalance = tc[testNum][0];
-    int32_t myInputAmount = tc[testNum][1];
-    int32_t myCalculatedBalance = tc[testNum][0] + tc[testNum][1];
-    int32_t correctBalance = 0;
-    int32_t correctInMemTransaction = 0;
+    // static bool firstTime = true;
+    uint32_t myErr = 0;
+    if ((tc[testNum][0] == 0) || (tc[testNum][1] == 0))
+    {
+        myErr = 1;
+    }
+    uint32_t myDiv = tc[testNum][0] / tc[testNum][1];
+    uint32_t myMod = tc[testNum][0] % tc[testNum][1];
 
-    // Check if test case input was out of range
-    bool myOutOfRange = false;
-    if ( (myInputAmount > 1000 ) || (myInputAmount < -1000))
+    // Check we_have_a_problem
+    if(myErr == we_have_a_problem)
     {
-        myOutOfRange = true;
-    }
-    
-    // check if test case input generated an overflow
-    bool myOverflow = false;
-    // detect two +'s overflowing to negative
-    if ((myInputBalance > 0) && (myInputAmount > 0) && (myCalculatedBalance <= 0))
-    {
-        myOverflow = true;        
-    }
-    else if ((myInputBalance < 0) && (myInputAmount < 0) && (myCalculatedBalance >= 0))
-    {
-        myOverflow = true;
-    }
-    if ((myOverflow == true) || (myOutOfRange == true))
-    {
-        correctBalance = myInputBalance;
-        correctInMemTransaction = 0;
+        *passCount += 1;
+        errCheck = pass;
     }
     else
     {
-        correctBalance = myCalculatedBalance;
-        correctInMemTransaction = myInputAmount;        
+        *failCount += 1;
+        errCheck = fail;
     }
 
-    int32_t myProb = 0;
-    int32_t myEatOut = 0;
-    int32_t myStayIn = 0;
-    int32_t myIceCream = 0;
-    // handle the overflow and input-out-of-range-cases
-    if (myOverflow == true || myOutOfRange == true)
-    {
-        // flags test: only we_have_a_problem should be set
-        myProb = 1;
-        if ((we_have_a_problem == 1) &&
-                (eat_out == 0) &&
-                (stay_in == 0) &&
-                (eat_ice_cream == 0))
-        {
-            *passCount += 1;
-            flagsCheck = pass;
-        }
-        else
-        {
-            *failCount += 1;
-            flagsCheck = fail;
-        }
-    }
-    else if (correctBalance > 0)  // no errs, and new balance is positive
-    {
-        myEatOut = 1;
-        if ((we_have_a_problem == 0) &&
-                (eat_out == 1) &&
-                (stay_in == 0) &&
-                (eat_ice_cream == 0))
-        {
-            *passCount += 1;
-            flagsCheck = pass;
-        }
-        else
-        {
-            *failCount += 1;
-            flagsCheck = fail;
-        }       
-    }
-    else if (correctBalance < 0)  // no errs, and new balance is negative
-    {
-            myStayIn = 1;
-            if ((we_have_a_problem == 0) &&
-                (eat_out == 0) &&
-                (stay_in == 1) &&
-                (eat_ice_cream == 0))
-        {
-            *passCount += 1;
-            flagsCheck = pass;
-        }
-        else
-        {
-            *failCount += 1;
-            flagsCheck = fail;
-        }        
-    }
-    else  // no errs, and new balance is 0
-    {
-        myIceCream = 1;
-        if ((we_have_a_problem == 0) &&
-                (eat_out == 0) &&
-                (stay_in == 0) &&
-                (eat_ice_cream == 1))
-        {
-            *passCount += 1;
-            flagsCheck = pass;
-        }
-        else
-        {
-            *failCount += 1;
-            flagsCheck = fail;
-        }        
-        
-    }
-        
-    // balance checks
-    if (correctBalance == r0Balance)
+    // Check return of addr in r0
+    if((uintptr_t)&quotient == (uintptr_t)r0quotientAddr)
     {
         *passCount += 1;
-        regBalCheck = pass;
+        addrCheck = pass;
     }
-    else                 
+    else
     {
         *failCount += 1;
-        regBalCheck = fail;
-    }
-    if (correctBalance == balance)
-    {
-        *passCount += 1;
-        memBalCheck = pass;
-    }
-    else                 
-    {
-        *failCount += 1;
-        memBalCheck = fail;
-    }
-    // transaction mem update check
-    if (correctInMemTransaction == transaction)
-    {
-        *passCount += 1;
-        transactionCheck = pass;
-    }
-    else                 
-    {
-        *failCount += 1;
-        transactionCheck = fail;
+        addrCheck = fail;
     }
 
+    // Check mem value of dividend
+    if(dividend == tc[testNum][0])
+    {
+        *passCount += 1;
+        dividendCheck = pass;
+    }
+    else
+    {
+        *failCount += 1;
+        dividendCheck = fail;
+    }
     
-    /* only check the string the first time through */
-    if (firstTime == true)
+    // Check mem value of divisor
+    if(divisor == tc[testNum][1])
     {
-        /* Do first time stuff here, if needed!!!  */
-        
-        firstTime = false; // don't check the strings for subsequent test cases
+        *passCount += 1;
+        divisorCheck = pass;
     }
+    else
+    {
+        *failCount += 1;
+        divisorCheck = fail;
+    }
+    
+    // Check calculation of quotient
+    if(quotient == myDiv)
+    {
+        *passCount += 1;
+        quotientCheck = pass;
+    }
+    else
+    {
+        *failCount += 1;
+        quotientCheck = fail;
+    }
+    
+    // Check calculation of modulus
+    if(myMod == mod)
+    {
+        *passCount += 1;
+        modCheck = pass;
+    }
+    else
+    {
+        *failCount += 1;
+        modCheck = fail;
+    }
+    
            
     // build the string to be sent out over the serial lines
     snprintf((char*)uartTxBuffer, MAX_PRINT_LEN,
             "========= Test Number: %d =========\r\n"
-            "test case INPUT: balance:     %11ld\r\n"
-            "test case INPUT: transaction: %11ld\r\n"
-            "flags pass/fail:       %s\r\n"
-            "mem balance pass/fail: %s\r\n"
-            "r0 balance pass/fail:  %s\r\n"
-            "transaction pass/fail: %s\r\n"
-            "debug values                  expected        actual\r\n"
-            "we_have_a_problem:.........%11ld   %11ld\r\n"
-            "eat_out:...................%11ld   %11ld\r\n"
-            "stay_in:...................%11ld   %11ld\r\n"
-            "eat_ice_cream:.............%11ld   %11ld\r\n"
-            "balance stored in mem:     %11ld   %11ld\r\n"
-            "balance returned in r0:    %11ld   %11ld\r\n"
-            "transaction stored in mem: %11ld   %11ld\r\n"
+            "test case INPUT: dividend:  %11lu\r\n"
+            "test case INPUT: divisor:   %11lu\r\n"
+            "error check pass/fail:         %s\r\n"
+            "addr check pass/fail:          %s\r\n"
+            "dividend mem value pass/fail:  %s\r\n"
+            "divisor mem value pass/fail:   %s\r\n"
+            "quotient mem value pass/fail:  %s\r\n"
+            "modulus mem value pass/fail:   %s\r\n"
+            "debug values            expected        actual\r\n"
+            "dividend:...........%11lu   %11lu\r\n"
+            "divisor:............%11lu   %11lu\r\n"
+            "quotient:...........%11lu   %11lu\r\n"
+            "mod:................%11lu   %11lu\r\n"
+            "we_have_a_problem:..%11lu   %11lu\r\n"
+            "quotient addr check: 0x%08" PRIXPTR "    0x%08" PRIXPTR "\r\n"
             "\r\n",
             testNum,
-            myInputBalance,
-            myInputAmount,
-            flagsCheck,
-            memBalCheck,
-            regBalCheck,
-            transactionCheck,
-            myProb, we_have_a_problem,
-            myEatOut, eat_out,
-            myStayIn, stay_in,
-            myIceCream, eat_ice_cream,
-            correctBalance, balance,
-            correctBalance, r0Balance,
-            correctInMemTransaction, transaction
+            tc[testNum][0],
+            tc[testNum][1],
+            errCheck, addrCheck, dividendCheck, divisorCheck, quotientCheck, modCheck,
+            tc[testNum][0], dividend,
+            tc[testNum][1], divisor,
+            myDiv, quotient,
+            myMod, mod,
+            myErr, we_have_a_problem,
+            (uintptr_t)(&quotient), (uintptr_t) r0quotientAddr
             );
 
 #if USING_HW 
@@ -427,17 +348,17 @@ int main ( void )
             isRTCExpired = false;
             isUSARTTxComplete = false;
             
-            // set the balance global variable to the test value
-            balance = tc[testCase][0];
-            // pass in amount to assembly in r0
-            int32_t amount = tc[testCase][1];
+            // set the dividend in r0
+            uint32_t myDividend = tc[testCase][0];
+            // set the divisor in r1
+            uint32_t myDivisor  = tc[testCase][1];
 
             // !!!! THIS IS WHERE YOUR ASSEMBLY LANGUAGE PROGRAM GETS CALLED!!!!
             // Call our assembly function defined in file asmFunc.s
-            int32_t newBalance = asmFunc(amount);
+            uint32_t quotAddr = asmFunc(myDividend, myDivisor);
             
             // test the result and see if it passed
-            failCount = testResult(testCase,newBalance,
+            failCount = testResult(testCase,quotAddr,
                                    &passCount,&failCount);
             totalPassCount = totalPassCount + passCount;
             totalFailCount = totalFailCount + failCount;

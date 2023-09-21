@@ -10,31 +10,26 @@
  
 /* define and initialize global variables that C can access */
 
-.global balance,transaction,eat_out,stay_in,eat_ice_cream,we_have_a_problem
-.type balance,%gnu_unique_object
-.type transaction,%gnu_unique_object
-.type eat_out,%gnu_unique_object
-.type stay_in,%gnu_unique_object
-.type eat_ice_cream,%gnu_unique_object
+.global dividend,divisor,quotient,mod,we_have_a_problem
+.type dividend,%gnu_unique_object
+.type divisor,%gnu_unique_object
+.type quotient,%gnu_unique_object
+.type mod,%gnu_unique_object
 .type we_have_a_problem,%gnu_unique_object
 
 /* NOTE! These are only initialized ONCE, right before the program runs.
  * If you want these to be 0 every time asmFunc gets called, you must set
  * them to 0 at the start of your code!
  */
-balance:           .word     0  /* input/output value */
-transaction:       .word     0  /* output value */
-eat_out:           .word     0  /* output value */
-stay_in:           .word     0  /* output value */
-eat_ice_cream:     .word     0  /* output value */
-we_have_a_problem: .word     0  /* output value */
+dividend:          .word     0  
+divisor:           .word     0  
+quotient:          .word     0  
+mod:               .word     0 
+we_have_a_problem: .word     0
 
  /* Tell the assembler that what follows is in instruction memory    */
 .text
 .align
-
-/* Tell the assembler to allow both 16b and 32b extended Thumb instructions */
-.syntax unified
 
     
 /********************************************************************
@@ -43,7 +38,7 @@ function description:
      output = asmFunc ()
      
 where:
-     output: the integer value returned to the C function
+     output: 
      
      function description: The C call ..........
      
@@ -74,7 +69,10 @@ done:
     /* restore the caller's registers, as required by the 
      * ARM calling convention 
      */
-    pop {r4-r11,LR}
+    mov r0,r0 /* these are do-nothing lines to deal with IDE mem display bug */
+    mov r0,r0 /* this is a do-nothing line to deal with IDE mem display bug */
+
+screen_shot:    pop {r4-r11,LR}
 
     mov pc, lr	 /* asmFunc return to caller */
    
