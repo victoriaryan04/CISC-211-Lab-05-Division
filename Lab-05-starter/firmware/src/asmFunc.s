@@ -60,6 +60,12 @@ asmFunc:
     ADD r0,r0,r2
 .endif
     
+    /** note to profs: asmFunc.s solution using MUL and UDIV is in Canvas at:
+     *    Canvas Files->
+     *        Lab Files and Coding Examples->
+     *            Lab 5 Division
+     * Use it to test the C test code */
+    
     /*** STUDENTS: Place your code BELOW this line!!! **************/
 
     
