@@ -69,14 +69,14 @@ static int32_t problemArray[] = {1,1,1,0,0,0};
 // the following array defines pairs of {balance, transaction} values
 // tc stands for test case
 static uint32_t tc[][2] = {
-    {      65535,         11}, // normal case, no errs
+    {         29,          5}, // normal case, no errs
+    {         25,          5}, // check for handling 0 as a result for mod
     {          0,          0}, // test with both inputs 0
     { 3000000000,    1000000}, // big numbers! (checks to see if using unsigned compares)
     {    1000000, 3000000000}, // big numbers! (checks to see if using unsigned compares)
     {          0,          5}, // test with a 0 input
     {          5,          0}, // test with a 0 input
-    {         29,          5},
-    {         25,          5}, // check for handling 0 as a result for mod
+    {      65534,         11}, // normal case, no errs
     {          1,          5} // check for correct integer division result
 };
 
