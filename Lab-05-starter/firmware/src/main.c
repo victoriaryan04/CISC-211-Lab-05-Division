@@ -68,7 +68,7 @@ static int32_t problemArray[] = {1,1,1,0,0,0};
 
 // the following array defines pairs of {balance, transaction} values
 // tc stands for test case
-static int32_t tc[][2] = {
+static uint32_t tc[][2] = {
     {      65535,         11}, // normal case, no errs
     {          0,          0}, // test with both inputs 0
     { 3000000000,    1000000}, // big numbers! (checks to see if using unsigned compares)
@@ -178,12 +178,17 @@ static int testResult(int testNum,
     // static char *s2 = "OOPS";
     // static bool firstTime = true;
     uint32_t myErr = 0;
+    uint32_t myDiv = 0;
+    uint32_t myMod = 0;
     if ((tc[testNum][0] == 0) || (tc[testNum][1] == 0))
     {
         myErr = 1;
     }
-    uint32_t myDiv = tc[testNum][0] / tc[testNum][1];
-    uint32_t myMod = tc[testNum][0] % tc[testNum][1];
+    else
+    {
+        myDiv = tc[testNum][0] / tc[testNum][1];
+        myMod = tc[testNum][0] % tc[testNum][1];
+    }
 
     // Check we_have_a_problem
     if(myErr == we_have_a_problem)
