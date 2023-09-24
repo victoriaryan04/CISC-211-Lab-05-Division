@@ -54,22 +54,13 @@ static volatile bool changeTempSamplingRate = false;
 static volatile bool isUSARTTxComplete = true;
 static uint8_t uartTxBuffer[MAX_PRINT_LEN] = {0};
 
-#if 0
-// Test cases for testing func that adds 3 nums and returns the results
-// AND sets bits in global variables.
-static int32_t depositArray[] = {  0x80000001, 0, 0x80000001,
-                                   5,5,6};
-static int32_t withdrawalArray[] = {  0x80000001, 0x80000001, 0,
-                                      -2, -6, 5};
-static int32_t balanceArray[] = {  0, 0x80000001, 0x80000001,
-                                  -3, -9, 4};
-static int32_t problemArray[] = {1,1,1,0,0,0};
-#endif
-
-// the following array defines pairs of {balance, transaction} values
+// STUDENTS: you can try your own inputs by modifying the lines below
+// the following array defines pairs of values (dividend, divisor) for test
+// inputs to the assembly function
 // tc stands for test case
 static uint32_t tc[][2] = {
     {         29,          5}, // normal case, no errs
+    {          1,          1}, // check for handling 0 as a result for mod
     {         25,          5}, // check for handling 0 as a result for mod
     {          0,          0}, // test with both inputs 0
     { 3000000000,    1000000}, // big numbers! (checks to see if using unsigned compares)
@@ -358,6 +349,7 @@ int main ( void )
             // set the divisor in r1
             uint32_t myDivisor  = tc[testCase][1];
 
+            // STUDENTS:
             // !!!! THIS IS WHERE YOUR ASSEMBLY LANGUAGE PROGRAM GETS CALLED!!!!
             // Call our assembly function defined in file asmFunc.s
             uint32_t quotAddr = asmFunc(myDividend, myDivisor);
@@ -406,6 +398,10 @@ int main ( void )
             while ((isRTCExpired == false) ||
                    (isUSARTTxComplete == false));
 
+            // STUDENTS:
+            // UNCOMMENT THE NEXT LINE IF YOU WANT YOUR CODE TO STOP AFTER THE LAST TEST CASE!
+            // exit(0);
+            
             // slow down the blink rate after the tests have been executed
             if (firstTime == true)
             {
