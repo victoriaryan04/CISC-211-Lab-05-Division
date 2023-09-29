@@ -55,12 +55,10 @@ asmFunc:
  
 .if 0
     /* profs test code. */
-    LDR r1,=balance
-    LDR r2,[r1]
-    ADD r0,r0,r2
+    mov r0,r0
 .endif
     
-    /** note to profs: asmFunc.s solution using MUL and UDIV is in Canvas at:
+    /** note to profs: asmFunc.s solution is in Canvas at:
      *    Canvas Files->
      *        Lab Files and Coding Examples->
      *            Lab 5 Division
